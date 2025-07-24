@@ -2,41 +2,42 @@ pipeline {
     agent any
 
     environment {
-        GIT_REPO = 'https://github.com/mohanbabureddy/BABU.git'
-        GIT_CREDENTIALS_ID = 'github-creds'  // Replace if you named your credential differently
-        DOCKER_IMAGE = 'rentapp-backend'
-        JAR_NAME = 'tenant-billing-0.0.1-SNAPSHOT.jar'
+        GIT_REPO = 'https://github.com/mohanbabureddy/BABU.git' // backend repo
+        GIT_CREDENTIALS_ID = 'github-creds'
+        IMAGE_NAME = 'rentapp-backend'
+        CONTAINER_NAME = 'rentapp-backend'
+        PORT = '8080'
     }
 
     stages {
-        stage('Clone Repo') {
+        stage('Clone') {
             steps {
                 git credentialsId: "${GIT_CREDENTIALS_ID}", url: "${GIT_REPO}"
             }
         }
 
-        stage('Build App') {
+        stage('Build JAR') {
             steps {
-                sh 'mvn clean package -DskipTests'
+                sh './mvnw clean package -DskipTests'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                sh "docker build -t ${DOCKER_IMAGE} ."
+                sh "docker build -t ${IMAGE_NAME} ."
             }
         }
 
         stage('Stop Old Container') {
             steps {
-                sh 'docker stop rentapp-container || true'
-                sh 'docker rm rentapp-container || true'
+                sh "docker stop ${CONTAINER_NAME} || true"
+                sh "docker rm ${CONTAINER_NAME} || true"
             }
         }
 
         stage('Run New Container') {
             steps {
-                sh "docker run -d -p 8080:8080 --name rentapp-container ${DOCKER_IMAGE}"
+                sh "docker run -d -p ${PORT}:${PORT} --name ${CONTAINER_NAME} ${IMAGE_NAME}"
             }
         }
     }
@@ -46,7 +47,7 @@ pipeline {
             echo '✅ Backend deployed successfully!'
         }
         failure {
-            echo '❌ Build or Deployment failed.'
+            echo '❌ Deployment failed.'
         }
     }
 }
