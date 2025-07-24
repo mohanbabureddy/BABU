@@ -29,7 +29,7 @@ pipeline {
             steps {
                 sshagent(['ec2-ssh-key']) {
                     sh '''
-                    ssh ec2-user@<EC2-IP> '
+                    ssh ec2-user@<http://13.53.193.78/> '
                     docker stop rentapp-backend || true && docker rm rentapp-backend || true
                     docker pull mohanbabureddy/rentapp-backend:latest
                     docker run -d --name rentapp-backend -p 8080:8080 mohanbabureddy/rentapp-backend
