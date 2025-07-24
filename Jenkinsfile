@@ -1,42 +1,52 @@
 pipeline {
     agent any
 
+    environment {
+        GIT_REPO = 'https://github.com/mohanbabureddy/BABU.git'
+        GIT_CREDENTIALS_ID = 'github-creds'  // Replace if you named your credential differently
+        DOCKER_IMAGE = 'rentapp-backend'
+        JAR_NAME = 'tenant-billing-0.0.1-SNAPSHOT.jar'
+    }
+
     stages {
-        stage('Checkout') {
+        stage('Clone Repo') {
             steps {
-                git 'https://github.com/mohanbabureddy/BABU.git'
+                git credentialsId: "${GIT_CREDENTIALS_ID}", url: "${GIT_REPO}"
             }
         }
 
-        stage('Build') {
+        stage('Build App') {
             steps {
-                sh './mvnw clean package -DskipTests'
+                sh 'mvn clean package -DskipTests'
             }
         }
 
-        stage('Docker Build & Push') {
+        stage('Build Docker Image') {
             steps {
-                script {
-                    dockerImage = docker.build("mohanbabureddy/rentapp-backend")
-                    docker.withRegistry('', 'docker-hub-credentials') {
-                        dockerImage.push("latest")
-                    }
-                }
+                sh "docker build -t ${DOCKER_IMAGE} ."
             }
         }
 
-        stage('Deploy to AWS EC2') {
+        stage('Stop Old Container') {
             steps {
-                sshagent(['ec2-ssh-key']) {
-                    sh '''
-                    ssh ec2-user@<http://13.53.193.78/> '
-                    docker stop rentapp-backend || true && docker rm rentapp-backend || true
-                    docker pull mohanbabureddy/rentapp-backend:latest
-                    docker run -d --name rentapp-backend -p 8080:8080 mohanbabureddy/rentapp-backend
-                    '
-                    '''
-                }
+                sh 'docker stop rentapp-container || true'
+                sh 'docker rm rentapp-container || true'
             }
+        }
+
+        stage('Run New Container') {
+            steps {
+                sh "docker run -d -p 8080:8080 --name rentapp-container ${DOCKER_IMAGE}"
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ Backend deployed successfully!'
+        }
+        failure {
+            echo '❌ Build or Deployment failed.'
         }
     }
 }
