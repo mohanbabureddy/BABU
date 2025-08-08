@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import javax.persistence.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Setter
@@ -25,6 +26,7 @@ public class TenantBill {
     private Double electricity;
     private boolean paid;
     private LocalDateTime paidDate;
+    private LocalDate CreatedDate;
 
 
 }

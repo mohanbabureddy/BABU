@@ -166,9 +166,13 @@
             <span>Invoice #:</span>
             <span th:text="${bill.id}">12345</span>
         </div>
-        <div>
+        <div th:if="${PaidDate != null}">
             <span>Paid Date:</span>
-            <span th:text="${bill.paidDate}">2025-08-07</span>
+            <span th:text="${PaidDate}">2025-08-07</span>
+        </div>
+        <div th:if="${CreatedDate != null}">
+            <span>Bill Created Date:</span>
+            <span th:text="${CreatedDate}">2025-08-01</span>
         </div>
     </div>
 
@@ -205,8 +209,7 @@
     </table>
 
     <div class="footer">
-        Thank you for your prompt payment.<br />
-        If you have any questions, contact +91 9964656247
+        Thank you.If you have any questions, contact:+919964656247,Name:Mohan Reddy<br />
     </div>
 </div>
 </body>

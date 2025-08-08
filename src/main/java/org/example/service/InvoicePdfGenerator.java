@@ -19,15 +19,14 @@ public class InvoicePdfGenerator {
         this.templateEngine = templateEngine;
     }
 
-    public byte[] generateInvoicePdf(TenantBill bill) throws Exception {
+    // Refactored method to accept date label and value
+    public byte[] generateInvoicePdf(TenantBill bill, String dateLabel, LocalDate dateValue) throws Exception {
         Context ctx = new Context();
         ctx.setVariable("bill", bill);
-        ctx.setVariable("PaidDate",
-                LocalDate.now().format(DateTimeFormatter.ISO_DATE));
+        ctx.setVariable(dateLabel, dateValue.format(DateTimeFormatter.ISO_DATE));
 
         String html = templateEngine.process("invoice", ctx);
 
-        // Set base URI to resolve relative image paths
         String baseUri = new java.io.File("src/main/resources/static").toURI().toString();
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {

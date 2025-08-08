@@ -1,5 +1,6 @@
 package org.example.service;
 
+import lombok.RequiredArgsConstructor;
 import org.example.model.TenantBill;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -8,33 +9,29 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import javax.mail.internet.MimeMessage;
+import java.time.LocalDate;
 
 @Service
+@RequiredArgsConstructor
 public class EmailWithInvoiceService {
 
     private final JavaMailSender mailSender;
     private final InvoicePdfGenerator pdfGenerator;
-    private final String fromAddress;
-
-    public EmailWithInvoiceService(JavaMailSender mailSender,
-                                   InvoicePdfGenerator pdfGenerator,
-                                   @Value("${spring.mail.from}") String fromAddress) {
-        this.mailSender    = mailSender;
-        this.pdfGenerator  = pdfGenerator;
-        this.fromAddress   = fromAddress;
-    }
+    @Value("${spring.mail.from}")
+    private String fromAddress;
 
     @Async
-    public void sendBillPaidEmail(TenantBill bill,
-                                  String tenantEmail,
-                                  String adminEmail) throws Exception {
-
-        byte[] pdfBytes = pdfGenerator.generateInvoicePdf(bill);
+    public void sendBillPaidEmail(TenantBill bill, String tenantEmail, String adminEmail) throws Exception {
+        byte[] pdfBytes = pdfGenerator.generateInvoicePdf(
+                bill,
+                "PaidDate",
+                LocalDate.now()
+        );
 
         MimeMessage mimeMsg = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(mimeMsg, true, "UTF-8");
         helper.setFrom(fromAddress);
-        helper.setTo(new String[]{ tenantEmail, adminEmail });
+        helper.setTo(new String[]{tenantEmail, adminEmail});
         helper.setSubject("Invoice: Bill Paid for " + bill.getMonthYear());
 
         String body = String.format(
@@ -50,4 +47,37 @@ public class EmailWithInvoiceService {
 
         mailSender.send(mimeMsg);
     }
+
+    @Async
+    public void notifyBillGenerated(TenantBill bill, String tenantEmail, String month) throws Exception {
+        LocalDate createdDate = bill.getCreatedDate();
+        byte[] pdfBytes = pdfGenerator.generateInvoicePdf(
+                bill,
+                "CreatedDate",
+                createdDate
+        );
+        MimeMessage mimeMsg = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(mimeMsg, true, "UTF-8");
+        helper.setFrom(fromAddress);
+        helper.setTo(tenantEmail);
+        helper.setSubject("Bill Generated for " + month);
+
+        String body = String.format(
+                "Hi %s,%n%nYour bill for %s has been generated.%n" +
+                        "Rent: %.2f%nWater: %.2f%nElectricity: %.2f%nTotal: %.2f%n%nThank you.",
+                bill.getTenantName(),
+                month,
+                bill.getRent(),
+                bill.getWater(),
+                bill.getElectricity(),
+                bill.getRent() + bill.getWater() + bill.getElectricity()
+        );
+        helper.setText(body);
+        helper.addAttachment("Invoice_" + bill.getMonthYear() + ".pdf",
+                () -> new java.io.ByteArrayInputStream(pdfBytes),
+                "application/pdf");
+
+        mailSender.send(mimeMsg);
+    }
 }
+

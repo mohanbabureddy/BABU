@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,6 +37,11 @@ public class TenantController {
 
     @Autowired
     private EmailWithInvoiceService emailWithInvoiceService;
+
+    @Autowired
+    private EmailWithInvoiceService emailService;
+
+
 
     /**
      * Fetch all bills for the given tenant, ordered by monthYear descending.
@@ -93,10 +99,10 @@ public class TenantController {
     }
 
     /**
-     * Add a new bill for a tenant.
+     * Add a new bill for a tenant and Notify them via email.
      */
     @PostMapping("/addBill")
-    public ResponseEntity<?> addBill(@RequestBody TenantBill bill) {
+    public ResponseEntity<?> addBill(@RequestBody TenantBill bill) throws Exception {
         logger.info("Adding new bill: {}", bill);
         Optional<TenantBill> existing = repository
                 .findByTenantNameAndMonthYear(bill.getTenantName(), bill.getMonthYear());
@@ -106,12 +112,29 @@ public class TenantController {
                     bill.getTenantName(), bill.getMonthYear());
             return ResponseEntity
                     .status(HttpStatus.CONFLICT)
-                    .body("Bill already exists for this tenant and month.");
+                    .body(Collections.singletonMap("error", "Bill already exists for this tenant and month."));
         }
 
+
+        bill.setCreatedDate(LocalDate.now());
         repository.save(bill);
         logger.info("Bill added successfully for {}", bill.getTenantName());
-        return ResponseEntity.ok("Bill added successfully.");
+
+
+        String tenantName = bill.getTenantName();
+        String tenantEmail = tenantEmailProperties.getEmailForTenant(tenantName);
+
+// Send email asynchronously (non-blocking)
+        new Thread(() -> {
+            try {
+                emailService.notifyBillGenerated(bill, tenantEmail, bill.getMonthYear());
+                logger.info("Notified successfully for the user {}", bill.getTenantName());
+            } catch (Exception e) {
+                logger.error("Failed to send email for user {}: {}", bill.getTenantName(), e.getMessage());
+            }
+        }).start();
+
+        return ResponseEntity.ok("Bill added successfully and notification triggered.");
     }
 
     /**
