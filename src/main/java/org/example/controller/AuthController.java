@@ -28,10 +28,12 @@ public class AuthController {
         String password = creds.get("password");
 
         logger.info("Login attempt for user: {}", username);
+        logger.debug("Received credentials: username={}, password=****", username);
 
         Optional<User> user = userRepo.findByUsername(username);
 
         if (user.isPresent()) {
+            logger.debug("User found: {}", user.get());
             if (user.get().getPassword().equals(password)) {
                 logger.info("Login successful for user: {}", username);
                 return ResponseEntity.ok(Map.of(
@@ -45,6 +47,7 @@ public class AuthController {
             logger.warn("Login failed: user not found: {}", username);
         }
 
+        logger.debug("Login response: UNAUTHORIZED for user: {}", username);
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials");
     }
 }

@@ -118,7 +118,7 @@ public class TenantController {
 
         bill.setCreatedDate(LocalDate.now());
         repository.save(bill);
-        logger.info("Bill added successfully for {}", bill.getTenantName());
+        logger.info("Bill added successfully for {} for month {}", bill.getTenantName(),bill.getMonthYear());
 
 
         String tenantName = bill.getTenantName();
@@ -169,7 +169,7 @@ public class TenantController {
             @PathVariable Long id,
             @RequestBody TenantBill updatedBill
     ) {
-        logger.info("Updating bill ID {}", id);
+        logger.info("Updating bill for user {}", updatedBill.getTenantName());
         TenantBill bill = repository.findById(id)
                 .orElseThrow(() -> {
                     logger.error("Bill with ID {} not found for update", id);
@@ -183,7 +183,7 @@ public class TenantController {
         bill.setElectricity(updatedBill.getElectricity());
 
         repository.save(bill);
-        logger.info("Bill ID {} updated successfully", id);
+        logger.info("Bill for user {} updated successfully", bill.getTenantName());
         return ResponseEntity.ok("Bill updated successfully.");
     }
 }
