@@ -12,5 +12,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("SELECT u.username FROM User u WHERE u.role = 'TENANT'")
     List<String> findTenantUsernames();
+
+    boolean existsByUsername(String username);
 }
 
