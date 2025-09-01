@@ -169,7 +169,7 @@ public class UserController {
         if (!isBlank(updated.getMail())) u.setMail(updated.getMail());
         if (!isBlank(updated.getPhone())) u.setPhone(updated.getPhone());
         userRepo.save(u);
-        return ok((Map<String, ?>) u);
+        return ResponseEntity.ok(u);
     }
 
     /* ---------- DELETE ---------- */
