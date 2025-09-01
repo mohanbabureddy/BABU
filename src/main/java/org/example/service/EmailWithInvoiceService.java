@@ -17,11 +17,13 @@ public class EmailWithInvoiceService {
 
     private final JavaMailSender mailSender;
     private final InvoicePdfGenerator pdfGenerator;
+    private final SmsService smsService; // Inject SmsService
+
     @Value("${spring.mail.from}")
     private String fromAddress;
 
     @Async
-    public void sendBillPaidEmail(TenantBill bill, String tenantEmail, String adminEmail) throws Exception {
+    public void sendBillPaidEmail(TenantBill bill, String tenantEmail, String adminEmail, String tenantPhone) throws Exception {
         byte[] pdfBytes = pdfGenerator.generateInvoicePdf(
                 bill,
                 "PaidDate",
@@ -46,10 +48,14 @@ public class EmailWithInvoiceService {
                 "application/pdf");
 
         mailSender.send(mimeMsg);
+
+        // Send SMS notification
+        String smsMessage = "Your bill for " + bill.getMonthYear() + " has been paid. Thank you!";
+        smsService.sendSms(tenantPhone, smsMessage);
     }
 
     @Async
-    public void notifyBillGenerated(TenantBill bill, String tenantEmail, String month) throws Exception {
+    public void notifyBillGenerated(TenantBill bill, String tenantEmail, String month, String tenantPhone) throws Exception {
         LocalDate createdDate = bill.getCreatedDate();
         byte[] pdfBytes = pdfGenerator.generateInvoicePdf(
                 bill,
@@ -78,6 +84,9 @@ public class EmailWithInvoiceService {
                 "application/pdf");
 
         mailSender.send(mimeMsg);
+
+        // Send SMS notification
+        String smsMessage = "Your bill for " + month + " has been generated.";
+        smsService.sendSms(tenantPhone, smsMessage);
     }
 }
-

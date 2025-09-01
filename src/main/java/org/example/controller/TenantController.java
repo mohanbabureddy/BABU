@@ -2,7 +2,9 @@ package org.example.controller;
 
 import org.example.model.TenantBill;
 import org.example.model.TenantEmailProperties;
+import org.example.model.User;
 import org.example.repo.TenantBillRepository;
+import org.example.repo.UserRepository;
 import org.example.service.EmailWithInvoiceService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,9 +41,7 @@ public class TenantController {
     private EmailWithInvoiceService emailWithInvoiceService;
 
     @Autowired
-    private EmailWithInvoiceService emailService;
-
-
+    private UserRepository userRepository;
 
     /**
      * Fetch all bills for the given tenant, ordered by monthYear descending.
@@ -70,13 +70,18 @@ public class TenantController {
         bill.setPaid(true);
         bill.setPaidDate(LocalDateTime.now());
 
-
         repository.save(bill);
         logger.info("Bill ID {} marked as paid", id);
 
         String tenantName  = bill.getTenantName();
         String tenantEmail = tenantEmailProperties.getEmailForTenant(tenantName);
         String adminEmail  = tenantEmailProperties.getAdminEmail();
+        String tenantPhone = null;
+        Optional<User> user = userRepository.findByUsername(tenantName);
+        if (user.isPresent()) {
+            tenantPhone = user.get().getPhone();
+        }
+
 
         if (tenantEmail == null || adminEmail == null) {
             logger.warn("Missing email configuration for tenant: {}", tenantName);
@@ -86,20 +91,20 @@ public class TenantController {
         }
 
         try {
-            emailWithInvoiceService.sendBillPaidEmail(bill, tenantEmail, adminEmail);
-            logger.info("Invoice email sent to {} and {}", tenantEmail, adminEmail);
+            emailWithInvoiceService.sendBillPaidEmail(bill, tenantEmail, adminEmail, tenantPhone);
+            logger.info("Invoice email and SMS sent to {} and {}", tenantEmail, adminEmail);
         } catch (Exception ex) {
-            logger.error("Failed to send invoice email for bill ID {}", id, ex);
+            logger.error("Failed to send invoice email/SMS for bill ID {}", id, ex);
             return ResponseEntity
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Payment marked as paid, but failed to send invoice email.");
+                    .body("Payment marked as paid, but failed to send invoice email/SMS.");
         }
 
-        return ResponseEntity.ok("Payment marked as paid; invoice sent.");
+        return ResponseEntity.ok("Payment marked as paid; invoice and SMS sent.");
     }
 
     /**
-     * Add a new bill for a tenant and Notify them via email.
+     * Add a new bill for a tenant and Notify them via email and SMS.
      */
     @PostMapping("/addBill")
     public ResponseEntity<?> addBill(@RequestBody TenantBill bill) throws Exception {
@@ -115,22 +120,24 @@ public class TenantController {
                     .body(Collections.singletonMap("error", "Bill already exists for this tenant and month."));
         }
 
-
         bill.setCreatedDate(LocalDate.now());
         repository.save(bill);
-        logger.info("Bill added successfully for {} for month {}", bill.getTenantName(),bill.getMonthYear());
-
+        logger.info("Bill added successfully for {} for month {}", bill.getTenantName(), bill.getMonthYear());
 
         String tenantName = bill.getTenantName();
         String tenantEmail = tenantEmailProperties.getEmailForTenant(tenantName);
+        String tenantPhone;
+        Optional<User> user = userRepository.findByUsername(tenantName);
+        tenantPhone = user.map(User::getPhone).orElse(null);
+        ; // Get phone number
 
-// Send email asynchronously (non-blocking)
+        // Send email and SMS asynchronously (non-blocking)
         new Thread(() -> {
             try {
-                emailService.notifyBillGenerated(bill, tenantEmail, bill.getMonthYear());
+                emailWithInvoiceService.notifyBillGenerated(bill, tenantEmail, bill.getMonthYear(), tenantPhone);
                 logger.info("Notified successfully for the user {}", bill.getTenantName());
             } catch (Exception e) {
-                logger.error("Failed to send email for user {}: {}", bill.getTenantName(), e.getMessage());
+                logger.error("Failed to send email/SMS for user {}: {}", bill.getTenantName(), e.getMessage());
             }
         }).start();
 
