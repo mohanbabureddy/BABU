@@ -23,12 +23,11 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/tenants")
 @CrossOrigin(origins = {
-        "http://localhost:3000",
-        "https://vgrpay.uk",
-        "https://d8aff7a8.rentapp1.pages.dev"
+    "http://localhost:3000",
+    "https://vgrpay.uk",
+    "https://d8aff7a8.rentapp1.pages.dev"
 })
 public class TenantController {
-
     private static final Logger logger = LoggerFactory.getLogger(TenantController.class);
 
     @Autowired
@@ -62,10 +61,10 @@ public class TenantController {
     public ResponseEntity<?> markAsPaid(@PathVariable Long id) {
         logger.info("Marking bill as paid for ID: {}", id);
         TenantBill bill = repository.findById(id)
-                .orElseThrow(() -> {
-                    logger.error("Bill with ID {} not found", id);
-                    return new RuntimeException("Bill not found");
-                });
+            .orElseThrow(() -> {
+                logger.error("Bill with ID {} not found", id);
+                return new RuntimeException("Bill not found");
+            });
 
         bill.setPaid(true);
         bill.setPaidDate(LocalDateTime.now());
@@ -73,51 +72,42 @@ public class TenantController {
         repository.save(bill);
         logger.info("Bill ID {} marked as paid", id);
 
-        String tenantName  = bill.getTenantName();
+        String tenantName = bill.getTenantName();
         String tenantEmail = tenantEmailProperties.getEmailForTenant(tenantName);
-        String adminEmail  = tenantEmailProperties.getAdminEmail();
+        String adminEmail = tenantEmailProperties.getAdminEmail();
         String tenantPhone = null;
         Optional<User> user = userRepository.findByUsername(tenantName);
         if (user.isPresent()) {
             tenantPhone = user.get().getPhone();
         }
 
-
         if (tenantEmail == null || adminEmail == null) {
             logger.warn("Missing email configuration for tenant: {}", tenantName);
-            return ResponseEntity
-                    .status(HttpStatus.BAD_REQUEST)
-                    .body("Email configuration missing for tenant or admin.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Email configuration missing for tenant or admin.");
         }
-
         try {
             emailWithInvoiceService.sendBillPaidEmail(bill, tenantEmail, adminEmail, tenantPhone);
             logger.info("Invoice email and SMS sent to {} and {}", tenantEmail, adminEmail);
         } catch (Exception ex) {
-            logger.error("Failed to send invoice email/SMS for bill ID {}", id, ex);
-            return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Payment marked as paid, but failed to send invoice email/SMS.");
+            logger.error("Failed to send invoice email/SMS for bill ID {}: {}", id, ex.getMessage(), ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Payment marked as paid, but failed to send invoice email/SMS.");
         }
-
-        return ResponseEntity.ok("Payment marked as paid; invoice and SMS sent.");
+        return ResponseEntity.ok("Payment marked as paid and invoice sent.");
     }
 
     /**
      * Add a new bill for a tenant and Notify them via email and SMS.
      */
     @PostMapping("/addBill")
-    public ResponseEntity<?> addBill(@RequestBody TenantBill bill) throws Exception {
+    public ResponseEntity<?> addBill(@RequestBody TenantBill bill) {
         logger.info("Adding new bill: {}", bill);
         Optional<TenantBill> existing = repository
-                .findByTenantNameAndMonthYear(bill.getTenantName(), bill.getMonthYear());
-
+            .findByTenantNameAndMonthYear(bill.getTenantName(), bill.getMonthYear());
         if (existing.isPresent()) {
-            logger.warn("Bill already exists for {} in {}",
-                    bill.getTenantName(), bill.getMonthYear());
+            logger.warn("Bill already exists for {} in {}", bill.getTenantName(), bill.getMonthYear());
             return ResponseEntity
-                    .status(HttpStatus.CONFLICT)
-                    .body(Collections.singletonMap("error", "Bill already exists for this tenant and month."));
+                .status(HttpStatus.CONFLICT)
+                .body(Collections.singletonMap("error", "Bill already exists for this tenant and month."));
         }
 
         bill.setCreatedDate(LocalDate.now());
@@ -128,8 +118,7 @@ public class TenantController {
         String tenantEmail = tenantEmailProperties.getEmailForTenant(tenantName);
         String tenantPhone;
         Optional<User> user = userRepository.findByUsername(tenantName);
-        tenantPhone = user.map(User::getPhone).orElse(null);
-        ; // Get phone number
+        tenantPhone = user.map(User::getPhone).orElse(null); // Get phone number
 
         // Send email and SMS asynchronously (non-blocking)
         new Thread(() -> {
@@ -137,7 +126,7 @@ public class TenantController {
                 emailWithInvoiceService.notifyBillGenerated(bill, tenantEmail, bill.getMonthYear(), tenantPhone);
                 logger.info("Notified successfully for the user {}", bill.getTenantName());
             } catch (Exception e) {
-                logger.error("Failed to send email/SMS for user {}: {}", bill.getTenantName(), e.getMessage());
+                logger.error("Failed to send email/SMS for user {}: {}", bill.getTenantName(), e.getMessage(), e);
             }
         }).start();
 
@@ -151,7 +140,7 @@ public class TenantController {
     public List<TenantBill> getAllBills() {
         logger.info("Fetching all bills");
         List<TenantBill> allBills = repository.findAll(
-                Sort.by(Sort.Direction.DESC, "monthYear")
+            Sort.by(Sort.Direction.DESC, "monthYear")
         );
         logger.debug("Total bills fetched: {}", allBills.size());
         return allBills;
@@ -173,15 +162,15 @@ public class TenantController {
      */
     @PutMapping("/updateBill/{id}")
     public ResponseEntity<?> updateBill(
-            @PathVariable Long id,
-            @RequestBody TenantBill updatedBill
+        @PathVariable Long id,
+        @RequestBody TenantBill updatedBill
     ) {
         logger.info("Updating bill for user {}", updatedBill.getTenantName());
         TenantBill bill = repository.findById(id)
-                .orElseThrow(() -> {
-                    logger.error("Bill with ID {} not found for update", id);
-                    return new RuntimeException("Bill not found");
-                });
+            .orElseThrow(() -> {
+                logger.error("Bill with ID {} not found for update", id);
+                return new RuntimeException("Bill not found");
+            });
 
         bill.setTenantName(updatedBill.getTenantName());
         bill.setMonthYear(updatedBill.getMonthYear());

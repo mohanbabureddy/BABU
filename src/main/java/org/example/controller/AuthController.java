@@ -14,9 +14,8 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = {"http://localhost:3000", "https://vgrpay.uk","https://d8aff7a8.rentapp1.pages.dev"})
+@CrossOrigin(origins = {"http://localhost:3000", "https://vgrpay.uk", "https://d8aff7a8.rentapp1.pages.dev"})
 public class AuthController {
-
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
     @Autowired
@@ -37,8 +36,8 @@ public class AuthController {
             if (user.get().getPassword().equals(password)) {
                 logger.info("Login successful for user: {}", username);
                 return ResponseEntity.ok(Map.of(
-                        "role", user.get().getRole(),
-                        "username", username
+                    "role", user.get().getRole(),
+                    "username", username
                 ));
             } else {
                 logger.warn("Login failed: incorrect password for user: {}", username);

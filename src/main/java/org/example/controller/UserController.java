@@ -4,8 +4,6 @@ import org.example.model.User;
 import org.example.repo.UserRepository;
 import org.example.service.OTPService;
 import org.example.service.UserService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -16,114 +14,175 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/users")
 @CrossOrigin(origins = {
-        "http://localhost:3000",
-        "https://vgrpay.uk",
-        "https://d8aff7a8.rentapp1.pages.dev"
+    "http://localhost:3000",
+    "https://vgrpay.uk",
+    "https://d8aff7a8.rentapp1.pages.dev"
 })
 public class UserController {
-
-    private static final Logger log = LoggerFactory.getLogger(UserController.class);
 
     @Autowired
     private UserRepository userRepo;
     @Autowired
     private OTPService otpService;
     @Autowired
-    private UserService userService; // if you keep extra business logic
+    private UserService userService;
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(UserController.class);
 
     /* ---------- ADMIN: create skeleton user (username + role) ----------- */
     @PostMapping("/add")
     public ResponseEntity<?> addUser(@RequestBody User user) {
-        if (isBlank(user.getUsername()) || isBlank(user.getRole())) {
-            return bad("username & role required");
+        log.info("Add user request: username={}, role={}", user.getUsername(), user.getRole());
+        if (isBlank(user.getUsername()) || isBlank(user.getRole()) || isBlank(user.getPassword())) {
+            log.warn("Add user failed: missing required fields");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", "username,password & role required"));
         }
         if (userRepo.findByUsername(user.getUsername()).isPresent()) {
-            return conflict("User already exists");
+            log.warn("Add user failed: user already exists: {}", user.getUsername());
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("error", "User already exists"));
         }
         user.setRegistrationCompleted(false);
-        user.setPassword(null); // no password until tenant finishes
+        user.setPassword(passwordEncoder.encode(user.getPassword())); // no password until tenant finishes
         User saved = userRepo.save(user);
+        log.info("User created: id={}, username={}", saved.getId(), saved.getUsername());
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
     /* ---------- OPTIONAL direct signup (email+mobile+password) ---------- */
     @PostMapping("/signup")
     public ResponseEntity<?> signUp(@RequestBody Map<String, String> payload) {
+        log.info("Signup request: email={}, mobile={}", payload.get("email"), payload.get("mobileNumber"));
         String email = payload.get("email");
         String password = payload.get("password");
         String mobile = payload.get("mobileNumber");
-        if (anyBlank(email, password, mobile)) return bad("email,password,mobileNumber required");
-        // Delegate (ensure service encodes password & sets flags)
+        if (anyBlank(email, password, mobile)) {
+            log.warn("Signup failed: missing required fields");
+            return bad("email,password,mobileNumber required");
+        }
         User u = userService.registerUser(email, password, mobile);
+        log.info("User signed up: id={}, email={}", u.getId(), u.getMail());
         return ok(Map.of("id", u.getId(), "email", u.getMail()));
     }
 
     /* ---------- STEP 1 tenant: start registration (username given by admin) ---------- */
     @PostMapping("/registration/start")
     public ResponseEntity<?> startRegistration(@RequestBody Map<String, String> payload) {
+        log.info("Start registration: username={}, email={}, mobile={}", payload.get("username"), payload.get("email"), payload.get("mobileNumber"));
         String username = payload.get("username");
         String email = payload.get("email");
         String mobile = payload.get("mobileNumber");
-        if (anyBlank(username, email, mobile)) return bad("username,email,mobileNumber required");
+        if (anyBlank(username, email, mobile)) {
+            log.warn("Start registration failed: missing required fields");
+            return bad("username,email,mobileNumber required");
+        }
         Optional<User> opt = userRepo.findByUsername(username);
-        if (opt.isEmpty()) return notFound("Username not found");
+        if (opt.isEmpty()) {
+            log.warn("Start registration failed: username not found: {}", username);
+            return notFound("Username not found");
+        }
         User u = opt.get();
-        if (u.isRegistrationCompleted()) return conflict("Registration already completed");
+        if (u.isRegistrationCompleted()) {
+            log.warn("Start registration failed: already completed for username={}", username);
+            return conflict("Registration already completed");
+        }
         u.setMail(email.trim());
         u.setPhone(mobile.trim());
         userRepo.save(u);
-        String otp = otpService.generateOTP(mobile.trim()); // store internally; do NOT log in prod
-        log.info("OTP generated for {} (masked): ****", mobile);
+        otpService.generateOTP(mobile.trim());
+        log.info("OTP generated and sent for registration: mobile={}", mobile);
         return ok(Map.of("message", "OTP sent to mobile"));
     }
 
     /* ---------- STEP 2 tenant: finish registration with OTP + password ---------- */
     @PostMapping("/registration/finish")
     public ResponseEntity<?> finishRegistration(@RequestBody Map<String, String> payload) {
+        log.info("Finish registration: username={}, otp={}", payload.get("username"), payload.get("otp"));
         String username = payload.get("username");
         String otp = payload.get("otp");
         String password = payload.get("password");
-        if (anyBlank(username, otp, password)) return bad("username,otp,password required");
+        if (anyBlank(username, otp, password)) {
+            log.warn("Finish registration failed: missing required fields");
+            return bad("username,otp,password required");
+        }
         Optional<User> opt = userRepo.findByUsername(username);
-        if (opt.isEmpty()) return notFound("Username not found");
+        if (opt.isEmpty()) {
+            log.warn("Finish registration failed: username not found: {}", username);
+            return notFound("Username not found");
+        }
         User u = opt.get();
-        if (u.isRegistrationCompleted()) return conflict("Already completed");
-        if (u.getPhone() == null) return bad("Start registration first");
-        if (!otpService.verifyOTP(u.getPhone(), otp)) return unauthorized("Invalid OTP");
+        if (u.isRegistrationCompleted()) {
+            log.warn("Finish registration failed: already completed for username={}", username);
+            return conflict("Already completed");
+        }
+        if (u.getPhone() == null) {
+            log.warn("Finish registration failed: start registration not done for username={}", username);
+            return bad("Start registration first");
+        }
+        if (!otpService.verifyOTP(u.getPhone(), otp)) {
+            log.warn("Finish registration failed: invalid OTP for username={}", username);
+            return unauthorized("Invalid OTP");
+        }
         u.setPassword(passwordEncoder.encode(password));
         u.setRegistrationCompleted(true);
         userRepo.save(u);
+        log.info("Registration completed for username={}", username);
         return ok(Map.of("message", "Registration completed"));
     }
 
     /* ---------- LOGIN ---------- */
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> payload) {
+        log.info("Login attempt: username={}", payload.get("username"));
         String username = payload.get("username");
         String password = payload.get("password");
-        if (anyBlank(username, password)) return bad("username,password required");
+        if (anyBlank(username, password)) {
+            log.warn("Login failed: missing required fields");
+            return bad("username,password required");
+        }
         Optional<User> opt = userRepo.findByUsername(username);
-        if (opt.isEmpty()) return unauthorized("Invalid credentials");
-        User u = opt.get();
-        if (!u.isRegistrationCompleted()) return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("error", "Registration incomplete"));
-        if (u.getPassword() == null || !passwordEncoder.matches(password, u.getPassword()))
+        if (opt.isEmpty()) {
+            log.warn("Login failed: invalid credentials for username={}", username);
             return unauthorized("Invalid credentials");
+        }
+        User u = opt.get();
+        if (!u.isRegistrationCompleted()) {
+            log.warn("Login failed: registration incomplete for username={}", username);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(Map.of("error", "Registration incomplete"));
+        }
+        if (isBlank(password) || isBlank(u.getPassword()) || !passwordEncoder.matches(password, u.getPassword())) {
+            log.warn("Login failed: invalid credentials for username={}", username);
+            return unauthorized("Invalid credentials");
+        }
+        log.info("Login successful: username={}, role={}", u.getUsername(), u.getRole());
         return ok(Map.of("username", u.getUsername(), "role", u.getRole()));
     }
 
     /* ---------- FORGOT PASSWORD (OTP to registered mobile) ---------- */
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> payload) {
+        log.info("Forgot password request: username={}", payload.get("username"));
         String username = payload.get("username");
-        if (isBlank(username)) return bad("username required");
+        if (isBlank(username)) {
+            log.warn("Forgot password failed: missing username");
+            return bad("username required");
+        }
         Optional<User> opt = userRepo.findByUsername(username);
-        if (opt.isEmpty()) return notFound("User not found");
+        if (opt.isEmpty()) {
+            log.warn("Forgot password failed: user not found: {}", username);
+            return notFound("User not found");
+        }
         User u = opt.get();
-        if (isBlank(u.getPhone())) return bad("No mobile registered");
+        if (isBlank(u.getPhone())) {
+            log.warn("Forgot password failed: no mobile registered for username={}", username);
+            return bad("No mobile registered");
+        }
         otpService.generateOTP(u.getPhone());
+        log.info("OTP sent for forgot password: username={}, mobile={}", username, u.getPhone());
         return ok(Map.of("message", "OTP sent"));
     }
 
@@ -190,24 +249,23 @@ public class UserController {
         return false;
     }
 
-    private ResponseEntity<Map<String, String>> ok(Map<String, ?> body) {
-        //noinspection unchecked
-        return ResponseEntity.ok((Map<String, String>) body);
+    private ResponseEntity<?> bad(String msg) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(msg);
     }
 
-    private ResponseEntity<Map<String, String>> bad(String msg) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", msg));
+    private ResponseEntity<?> notFound(String msg) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(msg);
     }
 
-    private ResponseEntity<Map<String, String>> notFound(String msg) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", msg));
+    private ResponseEntity<?> conflict(String msg) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(msg);
     }
 
-    private ResponseEntity<Map<String, String>> conflict(String msg) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", msg));
+    private ResponseEntity<?> unauthorized(String msg) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(msg);
     }
 
-    private ResponseEntity<Map<String, String>> unauthorized(String msg) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", msg));
+    private ResponseEntity<?> ok(Object body) {
+        return ResponseEntity.ok(body);
     }
 }

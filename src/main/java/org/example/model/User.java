@@ -17,9 +17,6 @@ public class User {
     private String password;
     private String phone;
     private String mail;
-
     private String role; // "ADMIN" or "TENANT"
-
-    private boolean registrationCompleted; // Add this field
-
+    private boolean registrationCompleted;
 }

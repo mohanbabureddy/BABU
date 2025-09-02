@@ -11,19 +11,12 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "transaction_logs")
 public class TransactionLog {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
     private String tenantName;
-
     private String paymentId;
     private String status; // "SUCCESS" or "FAIL"
     private String errorReason;
-
     private LocalDateTime timestamp = LocalDateTime.now();
-
-    // Getters and setters
 }
-

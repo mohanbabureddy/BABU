@@ -15,15 +15,25 @@ public class OTPService {
     }
 
     public String generateOTP(String mobileNumber) {
-        String otp = String.valueOf((int)(Math.random() * 9000) + 1000);
-        otpStorage.put(mobileNumber, otp);
-        smsService.sendSms(mobileNumber, otp);
-        // Integrate SMS provider here to send OTP
-        return otp;
+        try {
+            String otp = String.valueOf((int)(Math.random() * 9000) + 1000);
+            otpStorage.put(mobileNumber, otp);
+            smsService.sendSms(mobileNumber, otp);
+            return otp;
+        } catch (Exception ex) {
+            org.slf4j.LoggerFactory.getLogger(OTPService.class)
+                .error("Error in generateOTP: {}", ex.getMessage(), ex);
+            throw ex;
+        }
     }
 
     public boolean verifyOTP(String mobileNumber, String otp) {
-        return otp.equals(otpStorage.get(mobileNumber));
+        try {
+            return otp.equals(otpStorage.get(mobileNumber));
+        } catch (Exception ex) {
+            org.slf4j.LoggerFactory.getLogger(OTPService.class)
+                .error("Error in verifyOTP: {}", ex.getMessage(), ex);
+            throw ex;
+        }
     }
 }
-

@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 @Service
 public class SmsService {
     private static final Logger logger = LoggerFactory.getLogger(SmsService.class);
-
     private final TwilioConfigRepository twilioConfigRepository;
     private TwilioConfigEntity twilioConfigEntity;
 
@@ -35,7 +34,6 @@ public class SmsService {
     }
 
     public void sendSms(String to, String message) {
-        // Refresh config before sending in case it changed
         this.twilioConfigEntity = twilioConfigRepository.findTopByOrderByIdDesc();
         if (!isConfigValid()) {
             logger.error("Cannot send SMS: Twilio configuration is missing or incomplete in the database!");
@@ -43,13 +41,13 @@ public class SmsService {
         }
         try {
             Message.creator(
-                    new com.twilio.type.PhoneNumber(to),
-                    new com.twilio.type.PhoneNumber(twilioConfigEntity.getPhoneNumber()),
-                    message
+                new com.twilio.type.PhoneNumber(to),
+                new com.twilio.type.PhoneNumber(twilioConfigEntity.getPhoneNumber()),
+                message
             ).create();
             logger.info("SMS sent to {}", to);
         } catch (Exception e) {
-            logger.error("Failed to send SMS to {}: {}", to, e.getMessage());
+            logger.error("Failed to send SMS to {}: {}", to, e.getMessage(), e);
         }
     }
 }

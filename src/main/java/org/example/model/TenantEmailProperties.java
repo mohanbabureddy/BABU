@@ -12,12 +12,10 @@ import java.util.Map;
 @Component
 @ConfigurationProperties(prefix = "tenants")
 public class TenantEmailProperties {
-
-    private Map<String, String> emails; // tenants.emails.room1, etc.
-    private String adminEmail;          // tenants.adminEmail
+    private Map<String, String> emails;
+    private String adminEmail;
 
     public String getEmailForTenant(String tenantName) {
         return emails.get(tenantName);
     }
 }
-

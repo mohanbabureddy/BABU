@@ -12,13 +12,9 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "tenant_bills")
 public class TenantBill {
-
-    // --- Setters ---
-    // --- Getters ---
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
     private String tenantName;
     private String monthYear;
     private Double rent;
@@ -27,6 +23,4 @@ public class TenantBill {
     private boolean paid;
     private LocalDateTime paidDate;
     private LocalDate CreatedDate;
-
-
 }

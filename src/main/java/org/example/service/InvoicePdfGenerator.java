@@ -12,21 +12,17 @@ import java.time.format.DateTimeFormatter;
 
 @Component
 public class InvoicePdfGenerator {
-
     private final TemplateEngine templateEngine;
 
     public InvoicePdfGenerator(TemplateEngine templateEngine) {
         this.templateEngine = templateEngine;
     }
 
-    // Refactored method to accept date label and value
     public byte[] generateInvoicePdf(TenantBill bill, String dateLabel, LocalDate dateValue) throws Exception {
         Context ctx = new Context();
         ctx.setVariable("bill", bill);
         ctx.setVariable(dateLabel, dateValue.format(DateTimeFormatter.ISO_DATE));
-
         String html = templateEngine.process("invoice", ctx);
-
         String baseUri = new java.io.File("src/main/resources/static").toURI().toString();
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {

@@ -23,6 +23,3 @@ public class TwilioConfigEntity {
     @Column(name = "phone_number", nullable = false)
     private String phoneNumber;
 }
-
-
-
