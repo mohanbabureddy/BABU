@@ -10,4 +10,6 @@ public interface TenantBillRepository extends JpaRepository<TenantBill, Long> {
     List<TenantBill> findByTenantNameOrderByMonthYearDesc(String tenantName);
 
     Optional<TenantBill> findByTenantNameAndMonthYear(String tenantName, String monthYear);
+
+    List<TenantBill> findByPaidIsTrueAndMonthYear(String monthYear);
 }
