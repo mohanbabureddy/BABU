@@ -79,12 +79,13 @@ public class TenantController {
         logger.info("Bill ID {} marked as paid", id);
 
         String tenantName = bill.getTenantName();
-        String tenantEmail = tenantEmailProperties.getEmailForTenant(tenantName);
+        String tenantEmail = null;
         String adminEmail = tenantEmailProperties.getAdminEmail();
         String tenantPhone = null;
         Optional<User> user = userRepository.findByUsername(tenantName);
         if (user.isPresent()) {
             tenantPhone = user.get().getPhone();
+            tenantEmail = user.get().getMail();
         }
 
         if (tenantEmail == null || adminEmail == null) {
@@ -121,20 +122,16 @@ public class TenantController {
         logger.info("Bill added successfully for {} for month {}", bill.getTenantName(), bill.getMonthYear());
 
         String tenantName = bill.getTenantName();
-        String tenantEmail = tenantEmailProperties.getEmailForTenant(tenantName);
+        //String tenantEmail = tenantEmailProperties.getEmailForTenant(tenantName);
         String tenantPhone;
+        String tenantEmail;
         Optional<User> user = userRepository.findByUsername(tenantName);
-        tenantPhone = user.map(User::getPhone).orElse(null); // Get phone number
+        tenantPhone = user.map(User::getPhone).orElse(null);
+        tenantEmail = user.map(User::getMail).orElse(null);
 
-        // Send email and SMS asynchronously (non-blocking)
-        new Thread(() -> {
-            try {
-                emailWithInvoiceService.notifyBillGenerated(bill, tenantEmail, bill.getMonthYear(), tenantPhone);
-                logger.info("Notified successfully for the user {}", bill.getTenantName());
-            } catch (Exception e) {
-                logger.error("Failed to send email/SMS for user {}: {}", bill.getTenantName(), e.getMessage(), e);
-            }
-        }).start();
+        // Send email and SMS asynchronously (non-blocking via @Async)
+        emailWithInvoiceService.notifyBillGenerated(bill, tenantEmail, bill.getMonthYear(), tenantPhone);
+        logger.info("Notification requested for the user {} ({})", bill.getTenantName(), tenantEmail);
 
         return ResponseEntity.ok("Bill added successfully and notification triggered.");
     }

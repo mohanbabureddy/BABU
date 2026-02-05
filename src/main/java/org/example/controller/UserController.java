@@ -1,5 +1,6 @@
 package org.example.controller;
 
+import org.example.dto.UserDto;
 import org.example.model.User;
 import org.example.repo.UserRepository;
 import org.example.service.OTPService;
@@ -49,7 +50,7 @@ public class UserController {
         user.setPassword(passwordEncoder.encode(user.getPassword())); // no password until tenant finishes
         User saved = userRepo.save(user);
         log.info("User created: id={}, username={}", saved.getId(), saved.getUsername());
-        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+        return ResponseEntity.status(HttpStatus.CREATED).body(toDto(saved));
     }
 
     /* ---------- OPTIONAL direct signup (email+mobile+password) ---------- */
@@ -203,8 +204,8 @@ public class UserController {
 
      /* ---------- LIST / NAMES ---------- */
     @GetMapping("/all")
-    public ResponseEntity<List<User>> getAllUsers() {
-        return ResponseEntity.ok(userRepo.findAll());
+    public ResponseEntity<List<UserDto>> getAllUsers() {
+        return ResponseEntity.ok(userRepo.findAll().stream().map(this::toDto).toList());
     }
 
     @GetMapping("/names")
@@ -228,7 +229,7 @@ public class UserController {
         if (!isBlank(updated.getMail())) u.setMail(updated.getMail());
         if (!isBlank(updated.getPhone())) u.setPhone(updated.getPhone());
         userRepo.save(u);
-        return ResponseEntity.ok(u);
+        return ResponseEntity.ok(toDto(u));
     }
 
     /* ---------- DELETE ---------- */
@@ -267,5 +268,16 @@ public class UserController {
 
     private ResponseEntity<?> ok(Object body) {
         return ResponseEntity.ok(body);
+    }
+
+    private UserDto toDto(User u) {
+        return new UserDto(
+            u.getId(),
+            u.getUsername(),
+            u.getPhone(),
+            u.getMail(),
+            u.getRole(),
+            u.isRegistrationCompleted()
+        );
     }
 }

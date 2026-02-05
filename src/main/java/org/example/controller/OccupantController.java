@@ -61,7 +61,12 @@ public class OccupantController {
         if (o == null || o.getAadharStoragePath() == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
-        java.nio.file.Path filePath = java.nio.file.Path.of(System.getProperty("user.dir"), "uploads", o.getAadharStoragePath());
+        java.nio.file.Path base = java.nio.file.Path.of(System.getProperty("user.dir"), "uploads")
+            .toAbsolutePath().normalize();
+        java.nio.file.Path filePath = base.resolve(o.getAadharStoragePath()).normalize();
+        if (!filePath.startsWith(base)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         java.io.File file = filePath.toFile();
         if (!file.exists()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();

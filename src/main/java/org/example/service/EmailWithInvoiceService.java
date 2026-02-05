@@ -24,6 +24,11 @@ public class EmailWithInvoiceService {
     @Async
     public void sendBillPaidEmail(TenantBill bill, String tenantEmail, String adminEmail, String tenantPhone) {
         try {
+            if (tenantEmail == null || tenantEmail.isBlank() || adminEmail == null || adminEmail.isBlank()) {
+                org.slf4j.LoggerFactory.getLogger(EmailWithInvoiceService.class)
+                    .warn("Skipping email: tenant/admin email missing for {}", bill.getTenantName());
+                return;
+            }
             byte[] pdfBytes = pdfGenerator.generateInvoicePdf(bill, "PaidDate", LocalDate.now());
             MimeMessage mimeMsg = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMsg, true, "UTF-8");
@@ -40,8 +45,10 @@ public class EmailWithInvoiceService {
                 () -> new java.io.ByteArrayInputStream(pdfBytes),
                 "application/pdf");
             mailSender.send(mimeMsg);
-            String smsMessage = "Your bill for " + bill.getMonthYear() + " has been paid. Thank you!";
-            smsService.sendSms(tenantPhone, smsMessage);
+            if (tenantPhone != null && !tenantPhone.isBlank()) {
+                String smsMessage = "Your bill for " + bill.getMonthYear() + " has been paid. Thank you!";
+                smsService.sendSms(tenantPhone, smsMessage);
+            }
         } catch (Exception ex) {
             org.slf4j.LoggerFactory.getLogger(EmailWithInvoiceService.class)
                 .error("Error in sendBillPaidEmail: {}", ex.getMessage(), ex);
@@ -51,6 +58,11 @@ public class EmailWithInvoiceService {
     @Async
     public void notifyBillGenerated(TenantBill bill, String tenantEmail, String month, String tenantPhone) {
         try {
+            if (tenantEmail == null || tenantEmail.isBlank()) {
+                org.slf4j.LoggerFactory.getLogger(EmailWithInvoiceService.class)
+                    .warn("Skipping email: tenant email missing for {}", bill.getTenantName());
+                return;
+            }
             LocalDate createdDate = bill.getCreatedDate();
             byte[] pdfBytes = pdfGenerator.generateInvoicePdf(bill, "CreatedDate", createdDate);
             MimeMessage mimeMsg = mailSender.createMimeMessage();
@@ -73,8 +85,10 @@ public class EmailWithInvoiceService {
                 () -> new java.io.ByteArrayInputStream(pdfBytes),
                 "application/pdf");
             mailSender.send(mimeMsg);
-            String smsMessage = "Your bill for " + month + " has been generated.";
-            smsService.sendSms(tenantPhone, smsMessage);
+            if (tenantPhone != null && !tenantPhone.isBlank()) {
+                String smsMessage = "Your bill for " + month + " has been generated.";
+                smsService.sendSms(tenantPhone, smsMessage);
+            }
         } catch (Exception ex) {
             org.slf4j.LoggerFactory.getLogger(EmailWithInvoiceService.class)
                 .error("Error in notifyBillGenerated: {}", ex.getMessage(), ex);

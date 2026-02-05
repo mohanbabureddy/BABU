@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -20,6 +21,8 @@ public class AuthController {
 
     @Autowired
     private UserRepository userRepo;
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> creds) {
@@ -33,10 +36,15 @@ public class AuthController {
 
         if (user.isPresent()) {
             logger.debug("User found: {}", user.get());
-            if (user.get().getPassword().equals(password)) {
+            User u = user.get();
+            if (!u.isRegistrationCompleted()) {
+                logger.warn("Login failed: registration incomplete for user: {}", username);
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Registration incomplete");
+            }
+            if (password != null && u.getPassword() != null && passwordEncoder.matches(password, u.getPassword())) {
                 logger.info("Login successful for user: {}", username);
                 return ResponseEntity.ok(Map.of(
-                    "role", user.get().getRole(),
+                    "role", u.getRole(),
                     "username", username
                 ));
             } else {

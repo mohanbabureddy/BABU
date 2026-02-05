@@ -94,7 +94,9 @@ public class OccupantService {
             throw new IllegalStateException("Cannot delete a verified occupant");
         }
         if (o.getAadharStoragePath() != null) {
-            try { Files.deleteIfExists(Path.of(root, o.getAadharStoragePath())); } catch (Exception ignored2) {}
+            try {
+                Files.deleteIfExists(Path.of(System.getProperty("user.dir"), root, o.getAadharStoragePath()));
+            } catch (Exception ignored2) {}
         }
         repo.delete(o);
     }
