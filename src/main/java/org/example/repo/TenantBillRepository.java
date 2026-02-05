@@ -2,7 +2,6 @@ package org.example.repo;
 
 import org.example.model.TenantBill;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
 import java.util.Optional;
@@ -12,5 +11,5 @@ public interface TenantBillRepository extends JpaRepository<TenantBill, Long> {
 
     Optional<TenantBill> findByTenantNameAndMonthYear(String tenantName, String monthYear);
 
-
+    List<TenantBill> findByPaidIsTrueAndMonthYear(String monthYear);
 }

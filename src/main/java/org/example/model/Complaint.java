@@ -6,17 +6,19 @@ import lombok.Setter;
 import javax.persistence.*;
 import java.time.LocalDateTime;
 
-@Setter
 @Getter
+@Setter
 @Entity
-@Table(name = "transaction_logs")
-public class TransactionLog {
+@Table(name = "complaints")
+public class Complaint {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
     private String tenantName;
-    private String paymentId;
-    private String status; // "SUCCESS" or "FAIL"
-    private String errorReason;
-    private LocalDateTime timestamp = LocalDateTime.now();
+    private String description;
+    private String status; // e.g., "OPEN", "RESOLVED"
+    private LocalDateTime createdDate;
+    private String resolutionComment;
+    private LocalDateTime closedDate;
 }
